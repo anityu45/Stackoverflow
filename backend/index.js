@@ -2,23 +2,49 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import mongoose from "mongoose";
-import userroutes from "./routes/auth.js"
-import questionroute from "./routes/question.js"
-import answerroutes from "./routes/answer.js"
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+import userroutes from "./routes/auth.js";
+import questionroute from "./routes/question.js";
+import answerroutes from "./routes/answer.js";
+
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json({ limit: "30mb", extended: true }));
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
 app.use(cors());
 
-app.get("/", (req, res) => {
-  res.send("Stackoverflow clone API is running perfectly");
-});
+// Serve static frontend assets from public directory if built
+const publicDir = path.join(__dirname, "public");
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
 
+// API Routes
 app.use("/user", userroutes);
 app.use("/question", questionroute);
 app.use("/answer", answerroutes);
+
+// Health check endpoint
+app.get("/api-health", (req, res) => {
+  res.json({ status: "OK", message: "Stackoverflow clone API is running" });
+});
+
+// SPA Catch-all middleware: serve index.html for UI pages in Express 5
+app.use((req, res) => {
+  const indexPath = path.join(publicDir, "index.html");
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.send("Stackoverflow clone API is running. Run `npm run build` in backend to serve UI.");
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URI || process.env.MONGODB_URL;

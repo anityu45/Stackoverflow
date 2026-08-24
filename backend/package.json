@@ -1,16 +1,17 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Stack Overflow clone backend and static server",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
+    "build": "node build-frontend.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

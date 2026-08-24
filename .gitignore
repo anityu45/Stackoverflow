@@ -9,6 +9,7 @@ out/
 build/
 dist/
 coverage/
+backend/public/
 
 # environment files & secrets
 .env
