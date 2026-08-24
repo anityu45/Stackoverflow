@@ -1,0 +1,10 @@
+{
+  "name": "stackoverflow-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "cd backend && node build-frontend.js",
+    "start": "cd backend && node index.js"
+  }
+}
