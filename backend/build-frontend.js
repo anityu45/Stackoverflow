@@ -10,9 +10,12 @@ const rootDir = path.resolve(__dirname, "..");
 const frontendDir = path.join(rootDir, "frontend");
 const backendPublicDir = path.join(__dirname, "public");
 
-console.log("📦 Building Next.js static export for single-service deployment...");
+console.log("📦 Installing backend & frontend dependencies...");
 try {
+  execSync("npm install", { cwd: __dirname, stdio: "inherit" });
   execSync("npm install", { cwd: frontendDir, stdio: "inherit" });
+
+  console.log("🏗️ Building Next.js static export for single-service deployment...");
   execSync("npm run build", { cwd: frontendDir, stdio: "inherit" });
 
   console.log("🚚 Copying frontend static export to backend/public...");
@@ -37,11 +40,11 @@ try {
   const exportOutDir = path.join(frontendDir, "out");
   if (fs.existsSync(exportOutDir)) {
     copyDir(exportOutDir, backendPublicDir);
-    console.log("✅ Frontend built and copied to backend/public successfully!");
+    console.log("✅ All dependencies installed, frontend built and copied to backend/public successfully!");
   } else {
     console.error("❌ Export directory frontend/out not found after build.");
   }
 } catch (err) {
-  console.error("❌ Failed to build frontend:", err.message);
+  console.error("❌ Failed build step:", err.message);
   process.exit(1);
 }
