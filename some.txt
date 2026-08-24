@@ -1,0 +1,4 @@
+mongodb+srv://<db_username>:6d41R2UfQ2H0SGwU@cluster0.i2mzxqr.mongodb.net/?appName=Cluster0
+MONGODB_USERNAME="anianirudh1963538_db_user"
+MONGODB_PASSWORD="6d41R2UfQ2H0SGwU"
+MONGODB_URI="mongodb+srv://anianirudh1963538_db_user:6d41R2UfQ2H0SGwU@cluster0.i2mzxqr.mongodb.net"
