@@ -1,16 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { toast } from "react-toastify";
-
+import { User } from "../types/user";
 import axiosInstance from "./axiosinstance";
-
-type User = {
-  _id: string;
-  name: string;
-  email?: string;
-  token?: string;
-  about?: string;
-  tags?: string[];
-};
 
 type AuthCredentials = {
   email: string;
@@ -19,6 +10,7 @@ type AuthCredentials = {
 
 type SignupPayload = AuthCredentials & {
   name: string;
+  phone?: string;
 };
 
 type AuthContextValue = {
@@ -32,7 +24,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const getStoredUser = () => {
+const getStoredUser = (): User | null => {
   if (typeof window === "undefined") return null;
 
   try {
@@ -49,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const Signup = async ({ name, email, password }: SignupPayload) => {
+  const Signup = async ({ name, email, password, phone }: SignupPayload) => {
     setLoading(true);
     setError(null);
     try {
@@ -57,9 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name,
         email,
         password,
+        phone,
       });
       const { data, token } = res.data;
-      const nextUser = { ...data, token };
+      const nextUser: User = { ...data, token };
       localStorage.setItem("user", JSON.stringify(nextUser));
       setUser(nextUser);
       toast.success("Signup successful");
@@ -82,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       const { data, token } = res.data;
-      const nextUser = { ...data, token };
+      const nextUser: User = { ...data, token };
       localStorage.setItem("user", JSON.stringify(nextUser));
       setUser(nextUser);
       toast.success("Login successful");

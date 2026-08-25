@@ -2,35 +2,48 @@ import mongoose from "mongoose";
 import user from "../models/auth.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { config } from "../config/env.js";
 
-const JWT_SECRET = process.env.JWT_SECRET || "supersecretjwtkey12345";
+const sanitizeUser = (userDoc) => {
+  const userObj = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+  delete userObj.password;
+  delete userObj.resetOtp;
+  delete userObj.resetOtpExpire;
+  delete userObj.languageOtp;
+  delete userObj.languageOtpExpire;
+  delete userObj.loginSecurityOtp;
+  delete userObj.loginSecurityOtpExpire;
+  return userObj;
+};
 
 export const Signup = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   try {
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const exisitinguser = await user.findOne({ email });
-    if (exisitinguser) {
-      return res.status(400).json({ message: "User already exists" });
+    const existinguser = await user.findOne({ email: email.toLowerCase().trim() });
+    if (existinguser) {
+      return res.status(400).json({ message: "User already exists with this email" });
     }
 
     const hashpassword = await bcrypt.hash(password, 12);
     const newuser = await user.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
       password: hashpassword,
+      phone: phone ? phone.trim() : "",
     });
 
     const token = jwt.sign(
       { email: newuser.email, id: newuser._id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
     );
 
-    res.status(200).json({ data: newuser, token });
+    const safeUser = sanitizeUser(newuser);
+    res.status(200).json({ data: safeUser, token });
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ message: "Something went wrong during signup." });
@@ -44,26 +57,31 @@ export const Login = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const exisitinguser = await user.findOne({ email });
-    if (!exisitinguser) {
+    const existinguser = await user.findOne({ email: email.toLowerCase().trim() });
+    if (!existinguser) {
       return res.status(404).json({ message: "User does not exist" });
+    }
+
+    if (existinguser.status === "suspended") {
+      return res.status(403).json({ message: "Your account has been suspended by an administrator." });
     }
 
     const ispasswordcrct = await bcrypt.compare(
       password,
-      exisitinguser.password
+      existinguser.password
     );
     if (!ispasswordcrct) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
-      { email: exisitinguser.email, id: exisitinguser._id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
+      { email: existinguser.email, id: existinguser._id },
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiresIn }
     );
 
-    res.status(200).json({ data: exisitinguser, token });
+    const safeUser = sanitizeUser(existinguser);
+    res.status(200).json({ data: safeUser, token });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Something went wrong during login." });
@@ -72,7 +90,7 @@ export const Login = async (req, res) => {
 
 export const getallusers = async (req, res) => {
   try {
-    const alluser = await user.find().select("-password");
+    const alluser = await user.find().select("-password -resetOtp -languageOtp -loginSecurityOtp");
     res.status(200).json({ data: alluser });
   } catch (error) {
     console.error("Get all users error:", error);
@@ -83,18 +101,29 @@ export const getallusers = async (req, res) => {
 export const updateprofile = async (req, res) => {
   const { id: _id } = req.params;
   const editForm = req.body.editForm || req.body;
-  const { name, about, tags } = editForm;
+  const { name, about, tags, phone } = editForm;
 
   if (!mongoose.Types.ObjectId.isValid(_id)) {
     return res.status(400).json({ message: "Invalid user ID" });
   }
 
+  // Ensure security: user can only edit their own profile unless admin
+  if (req.userid !== _id && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Unauthorized profile edit attempt" });
+  }
+
   try {
+    const updateFields = {};
+    if (name) updateFields.name = name.trim();
+    if (about !== undefined) updateFields.about = about;
+    if (tags !== undefined) updateFields.tags = tags;
+    if (phone !== undefined) updateFields.phone = phone;
+
     const updatedUser = await user.findByIdAndUpdate(
       _id,
-      { $set: { name, about, tags } },
+      { $set: updateFields },
       { new: true }
-    ).select("-password");
+    ).select("-password -resetOtp -languageOtp -loginSecurityOtp");
 
     res.status(200).json({ data: updatedUser });
   } catch (error) {
