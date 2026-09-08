@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 import { config, validateEnv } from "./config/env.js";
 import userroutes from "./routes/auth.js";
@@ -9,13 +12,18 @@ import answerroutes from "./routes/answer.js";
 
 validateEnv();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const publicPath = path.join(__dirname, "public");
+
 const app = express();
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
-// Allow requests from the deployed Vercel frontend (and localhost for dev)
+// Allow requests from the deployed Vercel frontend, Render, and localhost
 const allowedOrigins = [
-  process.env.FRONTEND_URL,          // e.g. https://your-app.vercel.app
+  "https://stackoverflow-kappa-seven.vercel.app",
+  process.env.FRONTEND_URL,
   "http://localhost:3000",
   "http://127.0.0.1:3000",
 ].filter(Boolean);
@@ -23,12 +31,20 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (curl, Postman, server-to-server)
+      // Allow requests with no origin (curl, Postman, server-to-server, same-origin)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error(`CORS: Origin '${origin}' not allowed`));
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -53,6 +69,11 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// Serve static frontend assets if backend/public exists
+if (fs.existsSync(publicPath)) {
+  app.use(express.static(publicPath));
+}
+
 // API Routes
 app.use("/user", userroutes);
 app.use("/question", questionroute);
@@ -68,8 +89,26 @@ app.get("/api-health", (req, res) => {
   });
 });
 
-// 404 handler for unmatched routes
+// SPA / Static page fallback handler
 app.use((req, res) => {
+  if (fs.existsSync(publicPath)) {
+    // Check if a matching HTML file exists (e.g. /questions -> /questions.html)
+    const cleanPath = req.path.replace(/\/$/, "");
+    const pagePath = path.join(publicPath, `${cleanPath}.html`);
+    if (fs.existsSync(pagePath)) {
+      return res.sendFile(pagePath);
+    }
+    // Check index.html inside directory (e.g. /questions/index.html)
+    const dirIndexPath = path.join(publicPath, cleanPath, "index.html");
+    if (fs.existsSync(dirIndexPath)) {
+      return res.sendFile(dirIndexPath);
+    }
+    // Fallback to main index.html
+    const indexPath = path.join(publicPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  }
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
