@@ -9,6 +9,11 @@ import { config, validateEnv } from "./config/env.js";
 import userroutes from "./routes/auth.js";
 import questionroute from "./routes/question.js";
 import answerroutes from "./routes/answer.js";
+import postroutes from "./routes/post.js";
+import commentroutes from "./routes/comment.js";
+import followroutes from "./routes/follow.js";
+import notificationroutes from "./routes/notification.js";
+import moderationroutes from "./routes/moderation.js";
 
 validateEnv();
 
@@ -48,7 +53,7 @@ app.use(
   })
 );
 
-// Serverless DB connection middleware
+// Serverless / persistent DB connection middleware
 let isDbConnected = false;
 const connectDB = async () => {
   if (isDbConnected || mongoose.connection.readyState === 1) {
@@ -78,6 +83,11 @@ if (fs.existsSync(publicPath)) {
 app.use("/user", userroutes);
 app.use("/question", questionroute);
 app.use("/answer", answerroutes);
+app.use("/post", postroutes);
+app.use("/comment", commentroutes);
+app.use("/follow", followroutes);
+app.use("/notification", notificationroutes);
+app.use("/moderation", moderationroutes);
 
 // Health check endpoint
 app.get("/api-health", (req, res) => {
@@ -112,7 +122,7 @@ app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
-// Start server (Render keeps the process alive; not serverless)
+// Start server
 const PORT = config.port;
 connectDB().then(() => {
   app.listen(PORT, () => {
